@@ -26,7 +26,6 @@ datos = {
     "fecha_inicio": 0000000000,
     "fecha_fin": 0000000000
 }
-
 cheques = []                    #Array de diccionarios con los cheques leídos del archivo csv
 cheques_salida = []             #Array con los cheques filtrados
 
@@ -80,7 +79,27 @@ def filtrarChequesPorEstado():
             elif datos["estado"] == 3 and cheque["Estado"] != "RECHAZADO": #Si el filtro es RECHAZADO y el cheque no lo es
                 cheques_salida.remove(cheque) 
 
-# def filtrarChequesPorFechas():
+def filtrarChequesPorFechas():
+    if datos["fecha_inicio"] != "":
+        try:
+            fecha_inicio = datetime.datetime.strptime(datos["fecha_inicio"], "%d/%m/%Y")    #Conversión del string ingresado
+        except ValueError:
+            print("No ha ingresado una fecha de inicio correcta.")
+        else:
+            for cheque in reversed(cheques_salida):
+                fecha_origen = datetime.datetime.fromtimestamp(int(cheque["FechaOrigen"]))  #Conversión del string leido
+                if fecha_origen < fecha_inicio:     #Si la fecha de origen es menor al inicio del filtro
+                    cheques_salida.remove(cheque)   #Se elimina el cheque
+    if datos["fecha_fin"] != "":
+        try:
+            fecha_fin = datetime.datetime.strptime(datos["fecha_fin"], "%d/%m/%Y")    #Conversión del string ingresado
+        except ValueError:
+            print("No ha ingresado una fecha de fin correcta.")
+        else:
+            for cheque in reversed(cheques_salida):
+                fecha_origen = datetime.datetime.fromtimestamp(int(cheque["FechaOrigen"]))  #Conversión del string leido
+                if fecha_origen > fecha_fin:        #Si la fecha de origen es mayor al fin del filtro
+                    cheques_salida.remove(cheque)   #Se elimina el cheque
 
 #Secuencia de validación y filtración de los cheques (ante cualquier error retorna un 1)
 def filtrarCheques():
@@ -89,7 +108,7 @@ def filtrarCheques():
         if validarRepetidos() == 0:                         #Validación que no se repitan cheques
             filtrarChequesPorTipo()
             filtrarChequesPorEstado()
-            #filtrarChequesPorFechas()
+            filtrarChequesPorFechas()
         else:
             return 1
     else:
@@ -98,37 +117,45 @@ def filtrarCheques():
 #Impresión en pantalla de todos los datos de los cheques filtrados
 def salidaPantalla():
     print("Documento del cliente: ", datos["dni"])
-    for cheque in cheques_salida:
-        print(f"""Número de cheque: {cheque["NroCheque"]}
-                \tCódigo del Banco: {cheque["CodigoBanco"]}
-                \tCódigo de la Sucursal: {cheque["CodigoSucurusal"]}
-                \tNúmero de la cuenta origen: {cheque["NumeroCuentaOrigen"]}
-                \tNúmero de la cuenta destino: {cheque["NumeroCuentaDestino"]}
-                \tImporte del cheque: ${cheque["Valor"]}
-                \tFecha de origen: {cheque["FechaOrigen"]}
-                \tFecha de pago: {cheque["FechaPago"]}
-                \tTipo de cheque: {cheque["Tipo"]}
-                \tEstado del cheque: {cheque["Estado"]}""")
+    if len(cheques_salida) > 0:
+        for cheque in cheques_salida:
+            fecha_origen = datetime.datetime.fromtimestamp(int(cheque["FechaOrigen"]))  #Formato de fechas para mejor legibilidad/compresión
+            fecha_pago = datetime.datetime.fromtimestamp(int(cheque["FechaPago"]))
+            print(f"""Número de cheque: {cheque["NroCheque"]}
+                    \tCódigo del Banco: {cheque["CodigoBanco"]}
+                    \tCódigo de la Sucursal: {cheque["CodigoSucurusal"]}
+                    \tNúmero de la cuenta origen: {cheque["NumeroCuentaOrigen"]}
+                    \tNúmero de la cuenta destino: {cheque["NumeroCuentaDestino"]}
+                    \tImporte del cheque: ${cheque["Valor"]}
+                    \tFecha de origen: {fecha_origen}
+                    \tFecha de pago: {fecha_pago}
+                    \tTipo de cheque: {cheque["Tipo"]}
+                    \tEstado del cheque: {cheque["Estado"]}""")
+    else:
+        print("No se pudieron obtener cheques. Por favor revise los filtros.")
 
 #Generación de un archivo csv con los datos solicitados
 def salidaCSV():
-    dni = datos["dni"]
-    timestamp = int(datetime.datetime.now().timestamp())
-    #Nombre = <DNI><TIMESTAMPS ACTUAL>.csv
-    documento_csv = f"{dni}_{timestamp}.csv"
-    #Elimina los datos que no se solicitan
-    for cheque in cheques_salida:
-        cheque.pop("NroCheque")
-        cheque.pop("CodigoBanco")
-        cheque.pop("CodigoSucurusal")
-        cheque.pop("DNI")
-        cheque.pop("Tipo")
-        cheque.pop("Estado")
-    campos = cheques_salida[0].keys()              #Lee las claves del primer diccionario del array
-    with open(documento_csv, "w", newline="") as archivo:          
-        archivo_csv = csv.DictWriter(archivo, fieldnames=campos)
-        archivo_csv.writeheader()                                 #Escribe el encabezado  
-        archivo_csv.writerows(cheques_salida)                     #Escribe las filas
+    if len(cheques_salida) > 0:
+        dni = datos["dni"]
+        timestamp = int(datetime.datetime.now().timestamp())
+        #Nombre = <DNI><TIMESTAMPS ACTUAL>.csv
+        documento_csv = f"{dni}_{timestamp}.csv"
+        #Elimina los datos que no se solicitan
+        for cheque in cheques_salida:
+            cheque.pop("NroCheque")
+            cheque.pop("CodigoBanco")
+            cheque.pop("CodigoSucurusal")
+            cheque.pop("DNI")
+            cheque.pop("Tipo")
+            cheque.pop("Estado")
+        campos = cheques_salida[0].keys()              #Lee las claves del primer diccionario del array
+        with open(documento_csv, "w", newline="") as archivo:          
+            archivo_csv = csv.DictWriter(archivo, fieldnames=campos)
+            archivo_csv.writeheader()                                 #Escribe el encabezado  
+            archivo_csv.writerows(cheques_salida)                     #Escribe las filas
+    else:
+        print("No se pudieron obtener cheques. Por favor revise los filtros.")
 
 #Secuencia de salida según lo especificado
 def salida():
@@ -150,8 +177,8 @@ def ingresarDatos():
     while datos["tipo"] != "1" and datos["tipo"] != "2":
         datos["tipo"] = input("Error. Reingrese el filtro de tipo: ")
     datos["estado"] = int(input("Seleccione el filtro de estado del cheque:\n\t1-Pendiente\n\t2-Aprobado\n\t3-Rechazado\n\t4-No filtrar\n"))
-    datos["fecha_inicio"] = input("Ingrese la fecha de inicio del filtro (opcional): ")
-    datos["fecha_fin"] = input("Ingrese la fecha de fin del filtro (opcional): ")
+    datos["fecha_inicio"] = input("Ingrese la fecha de inicio del filtro en formato dd/mm/aaaa (opcional): ")
+    datos["fecha_fin"] = input("Ingrese la fecha de fin del filtro en formato dd/mm/aaaa (opcional): ")
 
 if __name__ == "__main__":
     print("Generar reporte de cheques:")
