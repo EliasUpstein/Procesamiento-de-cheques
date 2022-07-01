@@ -16,7 +16,7 @@ debe mostrar el error por pantalla, indicando que ese es el problema.
 los valores que se tienen, y si “Salida” es CSV se deberá exportar a un csv
 con las siguientes condiciones:
 a. El nombre de archivo tiene que tener el formato
-<DNI><TIMESTAMPS ACTUAL>.csv
+"<DNI><TIMESTAMPS ACTUAL>".csv
 b. Se tiene que exportar las dos fechas, el valor del cheque y la cuenta.
 5. Si el estado del cheque no se pasa, se deberán imprimir los cheques sin
 filtrar por estado 
