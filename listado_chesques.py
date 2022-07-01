@@ -1,10 +1,10 @@
-""" Ingresar el nombre del archivo csv (o hardcodearlo)
+""" Ingresar el nombre del archivo csv
 Ingresar el DNI del cliente
 Elegir la salida del "reporte" (pantalla o csv)
 Filtros:
 	Elegir el tipo de cheque (emitido o depositado)
 	Elegir el estado del cheque (Pendiente, Aprobado, Rechazado) (Opcional)
-	Elegir un rango de fecha (Opcional)
+	Elegir un rango de fecha xx-xx-xxxx:yy-yy-yyyy (Opcional)
 Si en un reporte, se repite un número de cheque, informar el error en pantalla
 Si la salida es pantalla se imprime todo en pantalla
 Si la salida es csv se exporta un archivo que:
@@ -12,13 +12,13 @@ Si la salida es csv se exporta un archivo que:
 	Se exporta fechaorigen, fechapago, valor y cuenta(contraria al DNI).
 Si no se recibe el estado del cheque imprimir sin filtro de estado """
 
-import csv
-import datetime
+#Inclusión de librerías
+import sys, csv, datetime
 
 #Inicialización de variables
 #Objeto con las entradas del usuario
 datos = {
-    "archivo_lectura": "cheques.csv",
+    "archivo_lectura": "",   
     "dni": 00000000,
     "salida": 0,
     "tipo": 0,
@@ -31,11 +31,18 @@ cheques_salida = []             #Array con los cheques filtrados
 
 #Lee el archivo csv especificado en datos["archivo_lectura"] y guarda sus datos como un diccionario en el array cheques
 def leerCSV():
-    with open(datos["archivo_lectura"], "r", newline="") as archivo:   #Abre el archivo (se cierra automáticamente)
+    try:
+        archivo = open(datos["archivo_lectura"], "r", newline="")
+    except FileNotFoundError:                               #Si no encuentra el archivo devuelve el error 
+        print("Error. El archivo especificado no existe.")
+        return 1
+    else:
         archivo_csv = csv.DictReader(archivo)               #Al omitir fieldnames utiliza como campos la primera fila del csv
         for diccionario in archivo_csv:                     #Copia fila por fila al array
             if diccionario != []:                           #Verifica que la fila no esté vacía
-                cheques.append(diccionario)                  #Agrega el diccionario de la fila al array
+                cheques.append(diccionario)                 #Agrega el diccionario de la fila al array
+        archivo.close() 
+        return 0 
 
 #Busca en el array cheques el documento ingresado, si lo encuentra lo guarda en cheques_salida
 def buscarChequesPorDNI():
@@ -54,9 +61,10 @@ def validarRepetidos():
     numeros_cheque = []             #Array para guardar los números de cheque
     for cheque in cheques_salida:
         numeros_cheque.append(cheque["NroCheque"])
-    for numero in numeros_cheque:
+    for numero in reversed(numeros_cheque):
         if numeros_cheque.count(numero) != 1:       #Si se repite algún cheque informa el error (para todos los repetidos)
             print(f"Error. El nº de cheque {numero} se encuentra repetido")
+            numeros_cheque.remove(numero)           #Lo borro para que no imprima 2 veces en pantalla
             aux = 1
     return aux
 
@@ -79,6 +87,7 @@ def filtrarChequesPorEstado():
             elif datos["estado"] == 3 and cheque["Estado"] != "RECHAZADO": #Si el filtro es RECHAZADO y el cheque no lo es
                 cheques_salida.remove(cheque) 
 
+#Filtra los cheques según la fecha de origen
 def filtrarChequesPorFechas():
     if datos["fecha_inicio"] != "":
         try:
@@ -103,12 +112,15 @@ def filtrarChequesPorFechas():
 
 #Secuencia de validación y filtración de los cheques (ante cualquier error retorna un 1)
 def filtrarCheques():
-    leerCSV()
-    if buscarChequesPorDNI() == 1:                          #Validación que encontró al menos un cheque
-        if validarRepetidos() == 0:                         #Validación que no se repitan cheques
-            filtrarChequesPorTipo()
-            filtrarChequesPorEstado()
-            filtrarChequesPorFechas()
+    if leerCSV() == 0:                                          #Validación que existe el archivo
+        if buscarChequesPorDNI() == 1:                          #Validación que encontró al menos un cheque
+            if validarRepetidos() == 0:                         #Validación que no se repitan cheques
+                filtrarChequesPorTipo()
+                filtrarChequesPorEstado()
+                filtrarChequesPorFechas()
+                return 0
+            else:
+                return 1
         else:
             return 1
     else:
@@ -166,9 +178,9 @@ def salida():
 
 #Ingreso de datos (validación de los obligatorios)
 def ingresarDatos():
-    # datos["archivo_lectura"] = input("Ingrese el archivo de cheques a leer: ")
+    datos["archivo_lectura"] = input("Ingrese el archivo de cheques a leer: ")
     datos["dni"] = input("Ingrese el DNI del cliente: ")
-    while datos["dni"] < "0" and datos["dni"] > "99999999":
+    while int(datos["dni"]) < 0 or int(datos["dni"]) > 99999999:
         datos["dni"] = input("Error. Reingrese el número de documento: ")
     datos["salida"] = input("Seleccione método de salida:\n\t1-Pantalla\n\t2-Archivo CSV\n")
     while datos["salida"] != "1" and datos["salida"] != "2":
@@ -180,8 +192,47 @@ def ingresarDatos():
     datos["fecha_inicio"] = input("Ingrese la fecha de inicio del filtro en formato dd/mm/aaaa (opcional): ")
     datos["fecha_fin"] = input("Ingrese la fecha de fin del filtro en formato dd/mm/aaaa (opcional): ")
 
+#Alternativa si se quieren ingresar los datos por consola (Devuelve 1 en caso de datos mal ingresados)
+#Convierte los string a números porque como primer alternativa se codeo considerando el ingreso de números (para no modificar todo el código)
+def leerDatos():
+    datos["archivo_lectura"] = sys.argv[1]
+    datos["dni"] = sys.argv[2]
+    if int(datos["dni"]) < 0 or int(datos["dni"]) > 99999999:
+        return 1
+    datos["salida"] = sys.argv[3]
+    if datos["salida"] == "PANTALLA":
+        datos["salida"] = "1"
+    elif datos["salida"] == "CSV":
+        datos["salida"] = "2"
+    else:
+        return 1
+    datos["tipo"] = sys.argv[4]
+    if datos["tipo"] == "EMITIDO":
+        datos["tipo"] = "1"
+    elif datos["tipo"] == "DEPOSITADO":
+        datos["tipo"] = "2"
+    else:
+        return 1
+    datos["estado"] = sys.argv[5]
+    if datos["estado"] == "PENDIENTE":
+        datos["estado"] = 1
+    elif datos["estado"] == "APROBADO":
+        datos["estado"] = 2
+    elif datos["estado"] == "RECHAZADO":
+        datos["estado"] = 3
+    else:
+        datos["estado"] = 0
+    datos["fecha_inicio"] = sys.argv[6]
+    datos["fecha_fin"] = sys.argv[7]
+    return 0
+
 if __name__ == "__main__":
     print("Generar reporte de cheques:")
-    ingresarDatos()                         #Ingreso de datos y filtros
-    if filtrarCheques() != 1:               #Selección de los cheques filtrados
+    ingresarDatos()                         #Ingreso de datos y filtros por pantalla
+    if filtrarCheques() == 0:               #Selección de los cheques filtrados
         salida()                            #Devolución de los datos en pantalla o por archivo
+    
+    # #Alternativa con ingreso por consola:
+    # if leerDatos() == 0:                        #Ingreso de datos y filtros por consola
+    #     if filtrarCheques() == 0:               #Selección de los cheques filtrados
+    #         salida()
